@@ -3,9 +3,7 @@ using Grpc.Core;
 using NSec.Cryptography;
 using ServiceAccount.Signer.Proto;
 using ServiceAccount.Signer.Security;
-using ServiceAccount.Signer.Services.Exceptions;
 using ServiceAccount.Signer.Validation;
-using System.ComponentModel.DataAnnotations;
 
 namespace ServiceAccount.Signer.Services;
 
@@ -42,9 +40,9 @@ public sealed class SignerService : TransactionSigner.TransactionSignerBase
         {
             throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message));
         }
-        catch
+        catch (Exception ex)
         {
-            throw new RpcException(new Status(StatusCode.Internal, "internal error"));
+            throw new RpcException(new Status(StatusCode.Internal, ex.Message));
         }
     }
 

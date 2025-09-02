@@ -36,7 +36,6 @@ public sealed class TransactionValidator : ITransactionValidator
         NoTokensValidate(body.CryptoTransfer!);
         NoNftValidate(body.CryptoTransfer!);
         NoUnknownFieldValidate(body);
-
     }
 
     private static TransactionBody TransactionBodyParser(ReadOnlySpan<byte> bodyBytes) => TransactionBody.Parser.ParseFrom(bodyBytes);
