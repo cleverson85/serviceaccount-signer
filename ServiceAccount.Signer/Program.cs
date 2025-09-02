@@ -8,6 +8,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.WebHost.ConfigureKestrel(options =>
 {
+    options.AddServerHeader = false;
+    options.Limits.MaxConcurrentConnections = 1000;
+    options.Limits.MaxConcurrentUpgradedConnections = 1000;
+    options.Limits.Http2.MaxStreamsPerConnection = 100;
+    options.Limits.Http2.InitialConnectionWindowSize = 1 << 20;
+    options.Limits.Http2.InitialStreamWindowSize = 1 << 20;
+
     options.ListenLocalhost(7074, options =>
     {
         options.UseHttps();
@@ -15,7 +22,12 @@ builder.WebHost.ConfigureKestrel(options =>
     });
 });
 
-builder.Services.AddGrpc();
+builder.Services.AddGrpc(options =>
+{
+    options.MaxReceiveMessageSize = 1 * 1024 * 1024;
+    options.MaxSendMessageSize = 512 * 1024;
+    options.EnableDetailedErrors = false;
+});
 
 builder.Services.AddHealthChecks()
     .AddCheck("signer", () => HealthCheckResult.Healthy());

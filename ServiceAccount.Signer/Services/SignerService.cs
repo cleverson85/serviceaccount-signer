@@ -22,6 +22,9 @@ public sealed class SignerService : TransactionSigner.TransactionSignerBase
     {
         try
         {
+            if (context.Deadline != DateTime.MaxValue && context.CancellationToken.IsCancellationRequested)
+                throw new RpcException(new Status(StatusCode.DeadlineExceeded, "deadline exceeded"));
+
             ReadOnlySpan<byte> bodySpan = request.TransactionBody.Memory.Span;
 
             _validator.Validate(bodySpan);
