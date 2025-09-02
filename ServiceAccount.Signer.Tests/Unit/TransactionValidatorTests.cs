@@ -129,6 +129,25 @@ public class TransactionValidatorTests
     }
 
     [Fact]
+    public void EnsureNoUnknownFields_WhenRootIsNull_ThrowsArgumentNullException()
+    {
+        var ex = Assert.Throws<ArgumentNullException>(() =>
+            UnknownFieldsAccessorValidator.EnsureNoUnknownFields(null!));
+
+        Assert.Equal("root", ex.ParamName);
+    }
+
+    [Fact]
+    public void Validate_EnsureNoUnknownFields_WhenMessageHasNoUnknowns_DoesNotThrow()
+    {
+        var v = new TransactionValidator(Opt());
+        var body = Helpers.TestHelpers.MakeValidCryptoTransferBody(1234);
+
+        var ex = Record.Exception(() => UnknownFieldsAccessorValidator.EnsureNoUnknownFields(body));
+        Assert.Null(ex);
+    }
+
+    [Fact]
     public void Validate_WhenOk_Passes()
     {
         var v = new TransactionValidator(Opt());

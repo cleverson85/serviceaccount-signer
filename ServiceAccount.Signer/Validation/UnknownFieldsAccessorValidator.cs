@@ -10,18 +10,16 @@ public static class UnknownFieldsAccessorValidator
 {
     private static readonly ConcurrentDictionary<Type, Func<IMessage, UnknownFieldSet?>> _cache = new();
 
-    private static UnknownFieldSet? Get(IMessage message)
+    private static Func<IMessage, UnknownFieldSet?> GetGetter(Type messageType)
     {
-        var t = message.GetType();
-        var getter = _cache.GetOrAdd(t, static tt =>
+        return _cache.GetOrAdd(messageType, static tt =>
         {
-            var property = tt.GetProperty("UnknownFields");
+            var property = tt.GetProperty("UnknownFields", BindingFlags.Public | BindingFlags.Instance);
             if (property is not null && property.PropertyType == typeof(UnknownFieldSet))
             {
                 var pMsg = Expression.Parameter(typeof(IMessage), "m");
                 var cast = Expression.Convert(pMsg, tt);
-                var prop = Expression.Property(cast, property);
-                var body = Expression.Convert(prop, typeof(UnknownFieldSet));
+                var body = Expression.Convert(Expression.Property(cast, property), typeof(UnknownFieldSet));
 
                 return Expression
                     .Lambda<Func<IMessage, UnknownFieldSet?>>(body, pMsg)
@@ -42,40 +40,39 @@ public static class UnknownFieldsAccessorValidator
 
             return _ => null;
         });
-
-        return getter(message);
     }
 
     public static void EnsureNoUnknownFields(IMessage root)
     {
-        if (HasUnknowns(root))
-            throw new UnknownFieldException();
+        ArgumentNullException.ThrowIfNull(root);
 
-        static bool HasUnknowns(IMessage message)
+        var stack = new Stack<IMessage>();
+        stack.Push(root);
+
+        while (stack.Count > 0)
         {
-            var unknownFieldSet = Get(message);
+            var message = stack.Pop();
+            var unknownFieldSet = GetGetter(message.GetType())(message);
+
             if (unknownFieldSet is not null && unknownFieldSet.CalculateSize() > 0)
-                return true;
+                throw new UnknownFieldException();
 
             foreach (var field in message.Descriptor.Fields.InDeclarationOrder())
             {
-                var value = field.Accessor.GetValue(message);
-                switch (value)
+                var valueField = field.Accessor.GetValue(message);
+                switch (valueField)
                 {
                     case IMessage child when child is not null:
-                        if (HasUnknowns(child))
-                            return true;
+                        stack.Push(child);
                         break;
 
-                    case System.Collections.IEnumerable seq when value is not string:
+                    case System.Collections.IEnumerable seq when valueField is not string:
                         foreach (var item in seq)
-                            if (item is IMessage m && HasUnknowns(m))
-                                return true;
+                            if (item is IMessage m)
+                                stack.Push(m);
                         break;
                 }
             }
-
-            return false;
         }
     }
 }
