@@ -1,0 +1,164 @@
+syntax = "proto3";
+
+package serviceaccount.signer;
+
+option csharp_namespace = "ServiceAccount.Signer.Proto";
+
+// ---- Copied from HAPI basic_types.proto (subset) ----
+message SignatureMap {
+    /**
+     * A list of signature pairs for a specific transaction.<br/>
+     * Each signature pair represents a single cryptographic (`primitive`)
+     * public key identified by a "prefix" value and the cryptographic
+     * signature produced for that key.
+     */
+    repeated SignaturePair sigPair = 1;
+}
+
+message SignaturePair {
+    /**
+     * Prefix bytes of the public key.
+     * <p>
+     * The client may use any number of bytes from zero to the whole length of
+     * the public key for pubKeyPrefix. If zero bytes are used, then it MUST be
+     * true that only one cryptographic key is required to sign the associated
+     * transaction.<br/>
+     * If the `pubKeyPrefix` is 0 bytes and more than a single cryptographic
+     * key is required to sign the transaction, the request SHALL resolve to
+     * `INVALID_SIGNATURE`.
+     * <blockquote>Important Note<blockquote>
+     * In the special case that a signature is provided to authorize a
+     * precompiled contract, the `pubKeyPrefix` MUST contain the _entire public
+     * key_.<br/>
+     * That is, if the key is an Ed25519 key, the `pubKeyPrefix` MUST be
+     * 32 bytes long and contain the full public key bytes.<br/>
+     * If the key is an ECDSA(secp256k1) key, the `pubKeyPrefix` MUST be
+     * 33 bytes long and contain the full _compressed_ form of the public key.
+     * </blockquote></blockquote>
+     * <p>
+     * <dl><dt>Purpose</dt>
+     * <dd>The `pubKeyPrefix` exists to save cost. A signed transaction with
+     * shorter prefixes will have fewer bytes, and so will have a lower
+     * transaction fee.
+     * The prefixes, however, MUST be long enough to distinguish between all
+     * of the public keys that might be signing the transaction. Therefore,
+     * software signing a transaction SHOULD evaluate which keys might possibly
+     * be required to sign a transaction, and ensure that the shortest prefix
+     * that is sufficient to unambiguously identify the correct key is used.
+     * </dd></dl>
+     */
+    bytes pubKeyPrefix = 1;
+
+    oneof signature {
+        /**
+         * A smart contract virtual signature.
+         * <p>
+         * This value MUST be length zero, if set.
+         */
+        bytes contract = 2;
+
+        /**
+         * An Ed25519 signature.
+         */
+        bytes ed25519 = 3;
+
+        /**
+         * This option is not supported.<br/>
+         * A RSA-3072 signature.
+         */
+        bytes RSA_3072 = 4 [deprecated = true];
+
+        /**
+         * This option is not supported.<br/>
+         * ECDSA p-384 signature.
+         */
+        bytes ECDSA_384 = 5 [deprecated = true];
+
+        /**
+         * An ECDSA(secp256k1) signature.
+         */
+        bytes ECDSA_secp256k1 = 6;
+    }
+}
+
+/**
+ * This message is deprecated and MUST NOT be used to communicate with
+ * network nodes. It is retained here only for historical reasons.
+ *
+ * Client software MUST NOT include this message in any request. <br/>
+ * Compliant nodes SHALL NOT accept any request containing this message.
+ *
+ * Please use the `SignaturePair` and `SignatureMap` messages instead of
+ * this message.
+ */
+message Signature {
+    option deprecated = true;
+
+    oneof signature {
+        /**
+         * Smart contract virtual signature (always length zero).
+         */
+        bytes contract = 1;
+
+        /**
+         * Ed25519 signature bytes.
+         */
+        bytes ed25519 = 2;
+
+        /**
+         * RSA-3072 signature bytes.
+         */
+        bytes RSA_3072 = 3;
+
+        /**
+         * ECDSA p-384 signature bytes.
+         */
+        bytes ECDSA_384 = 4;
+
+        /**
+         * A list of signatures for a single N-of-M threshold Key. This must be
+         * a list of exactly M signatures, at least N of which are non-null.
+         */
+        ThresholdSignature thresholdSignature = 5;
+
+        /**
+         * A list of M signatures, each corresponding to a Key in a KeyList
+         * of the same length.
+         */
+        SignatureList signatureList = 6;
+    }
+}
+
+message SignatureList {
+    option deprecated = true;
+
+    /**
+     * Each signature corresponds to a Key in the KeyList.
+     */
+    repeated Signature sigs = 2;
+}
+
+message ThresholdSignature {
+    option deprecated = true;
+
+    /**
+     * For an N-of-M threshold key, this is a list of M signatures, at least N
+     * of which must be non-null.
+     */
+    SignatureList sigs = 2;
+}
+// ---- Service API ----
+
+message SignRequest {
+  // Serialized Hedera TransactionBody bytes.
+  bytes transaction_body = 1;
+}
+
+message SignResponse {
+  // Hedera HAPI SignatureMap for the provided TransactionBody.
+  SignatureMap sigMap = 1;
+}
+
+service TransactionSigner {
+  rpc Sign (SignRequest) returns (SignResponse);
+}
